@@ -151,6 +151,20 @@ func doRoundTrip(c *Client, setHeaders func(*http.Request), in, out Message) err
 		// read only the first MiB of the body in error case
 		limReader := io.LimitReader(resp.Body, 1024*1024)
 		body, _ := ioutil.ReadAll(limReader)
+
+		// try to parse as soap fault
+		fault := struct {
+			XMLName xml.Name `xml:"Envelope"`
+			Body    struct {
+				Fault *Fault `xml:"Fault"`
+			}
+		}{}
+		if err := xml.Unmarshal(body, &fault); err == nil && fault.Body.Fault != nil {
+			// it was a soap fault
+			return fault.Body.Fault
+		}
+
+		// it was not a soap fault ... return raw data
 		return &HTTPError{
 			StatusCode: resp.StatusCode,
 			Status:     resp.Status,
@@ -249,4 +263,22 @@ type Envelope struct {
 	XSIAttr      string   `xml:"xmlns:xsi,attr,omitempty"`
 	Header       Message  `xml:"SOAP-ENV:Header"`
 	Body         Message  `xml:"SOAP-ENV:Body"`
+}
+
+// Fault is a Soap 1.1 fault
+type Fault struct {
+	FaultCode   string `xml:"faultcode"`
+	FaultString string `xml:"faultstring"`
+	FaultActor  string `xml:"faultactor"`
+	Detail      struct {
+		InnerXML []byte `xml:",innerxml"`
+	} `xml:"detail"`
+}
+
+func (f *Fault) Error() string {
+	return fmt.Sprintf("Actor %q caused error %q: %v",
+		f.FaultActor,
+		f.FaultCode,
+		f.FaultString,
+	)
 }
