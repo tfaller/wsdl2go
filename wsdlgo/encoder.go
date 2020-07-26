@@ -1367,7 +1367,7 @@ func (ge *goEncoder) genGoStruct(w io.Writer, d *wsdl.Definitions, ct *wsdl.Comp
 
 func (ge *goEncoder) genGoOpStruct(w io.Writer, d *wsdl.Definitions, bo *wsdl.BindingOperation) error {
 	name := goSymbol(bo.Name)
-	function := ge.funcs[name]
+	function := ge.funcs[bo.Name]
 
 	if function.Input == nil {
 		log.Printf("function input is nil! %v is %v", name, function)
